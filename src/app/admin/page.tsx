@@ -1,42 +1,58 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function AdminDashboardPage() {
   const [syncing, setSyncing] = useState(false);
+  const [autoSyncing, setAutoSyncing] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [message, setMessage] = useState("");
   
   const [status, setStatus] = useState<any>(null);
+  const abortAutoSync = useRef(false);
 
   const fetchStatus = async () => {
     try {
       const res = await fetch("/api/admin/status");
-      if (res.ok) setStatus(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setStatus(data);
+        return data;
+      }
     } catch (e) {
       console.error(e);
     }
+    return null;
   };
 
   useEffect(() => {
     fetchStatus();
+    return () => {
+      abortAutoSync.current = true;
+    };
   }, []);
+
+  const runSingleSync = async () => {
+    const res = await fetch("/api/admin/imports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ collector: "camara" })
+    });
+    if (!res.ok) throw new Error("Erro na API");
+  };
+
+  const runRecalculate = async () => {
+    const res = await fetch("/api/admin/scores/recalculate", { method: "POST" });
+    if (!res.ok) throw new Error("Erro na API");
+  };
 
   const forceSync = async () => {
     setSyncing(true);
     setMessage("");
     try {
-      const res = await fetch("/api/admin/imports", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collector: "camara" }) // Importa câmara como teste base
-      });
-      if (res.ok) {
-        setMessage("✅ Sincronização da Câmara concluída!");
-        fetchStatus();
-      } else {
-        setMessage("❌ Erro ao iniciar sincronização.");
-      }
+      await runSingleSync();
+      setMessage("✅ Sincronização da Câmara concluída!");
+      await fetchStatus();
     } catch (e) {
       setMessage("❌ Erro ao iniciar sincronização.");
     } finally {
@@ -44,16 +60,54 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const startAutoSync = async () => {
+    if (!status) return;
+    
+    setAutoSyncing(true);
+    setSyncing(true);
+    abortAutoSync.current = false;
+    setMessage("⏳ Iniciando Auto-Sync. Por favor, não feche esta aba...");
+
+    try {
+      let currentStatus = status;
+
+      while (!currentStatus.camara.completo && !abortAutoSync.current) {
+        setMessage(`⏳ Sincronizando lote... Faltam ${currentStatus.camara.faltam} inéditos.`);
+        await runSingleSync();
+        
+        currentStatus = await fetchStatus();
+        if (!currentStatus) throw new Error("Falha ao obter status");
+      }
+
+      if (abortAutoSync.current) {
+        setMessage("⚠️ Auto-Sync pausado.");
+      } else {
+        setMessage("✅ Todos os deputados importados! Iniciando recalculo automático das notas...");
+        setRecalculating(true);
+        await runRecalculate();
+        setMessage("🏆 TUDO PRONTO! Banco 100% populado e notas recalculadas com sucesso!");
+      }
+
+    } catch (e) {
+      setMessage("❌ Erro durante o Auto-Sync. Tente novamente.");
+    } finally {
+      setAutoSyncing(false);
+      setSyncing(false);
+      setRecalculating(false);
+    }
+  };
+
+  const stopAutoSync = () => {
+    abortAutoSync.current = true;
+    setMessage("⚠️ Pausando Auto-Sync ao final do lote atual...");
+  };
+
   const recalculate = async () => {
     setRecalculating(true);
     setMessage("");
     try {
-      const res = await fetch("/api/admin/scores/recalculate", { method: "POST" });
-      if (res.ok) {
-        setMessage("✅ Recálculo de notas concluído com sucesso!");
-      } else {
-        setMessage("❌ Erro ao recalcular notas.");
-      }
+      await runRecalculate();
+      setMessage("✅ Recálculo de notas concluído com sucesso!");
     } catch (e) {
       setMessage("❌ Erro ao recalcular notas.");
     } finally {
@@ -69,22 +123,45 @@ export default function AdminDashboardPage() {
       </div>
 
       {message && (
-        <div className="p-4 bg-brand-50 text-brand-900 rounded-md border border-brand-200">
+        <div className="p-4 bg-brand-50 text-brand-900 rounded-md border border-brand-200 font-medium">
           {message}
         </div>
       )}
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-surface-200">
-          <h2 className="text-lg font-bold text-ink-900 mb-2">Sincronização (ETL)</h2>
-          <p className="text-sm text-ink-500 mb-4">Execute a coleta de dados e importação de fontes oficiais (Câmara).</p>
-          <button 
-            onClick={forceSync}
-            disabled={syncing}
-            className="w-full py-2 bg-brand-600 text-white rounded-md font-medium text-sm hover:bg-brand-500 transition-colors disabled:opacity-50"
-          >
-            {syncing ? "Sincronizando lote (aguarde)..." : "Sincronizar Próximo Lote"}
-          </button>
+          <h2 className="text-lg font-bold text-ink-900 mb-2">Sincronização (Auto)</h2>
+          <p className="text-sm text-ink-500 mb-4">Importe automaticamente todos os 513 até o fim.</p>
+          
+          <div className="space-y-2">
+            {!autoSyncing ? (
+              <>
+                <button 
+                  onClick={startAutoSync}
+                  disabled={syncing || recalculating}
+                  className="w-full py-2 bg-brand-600 text-white rounded-md font-medium text-sm hover:bg-brand-500 transition-colors disabled:opacity-50"
+                >
+                  {status?.camara?.completo ? "Atualizar Banco" : "Sincronizar Tudo (Auto)"}
+                </button>
+                {!status?.camara?.completo && (
+                  <button 
+                    onClick={forceSync}
+                    disabled={syncing || autoSyncing}
+                    className="w-full py-2 border border-brand-200 text-brand-700 rounded-md font-medium text-sm hover:bg-brand-50 transition-colors disabled:opacity-50"
+                  >
+                    Baixar apenas 1 lote (50)
+                  </button>
+                )}
+              </>
+            ) : (
+              <button 
+                onClick={stopAutoSync}
+                className="w-full py-2 bg-red-600 text-white rounded-md font-medium text-sm hover:bg-red-500 transition-colors animate-pulse"
+              >
+                Parar Sincronização
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="bg-white p-6 rounded-xl shadow-sm border border-surface-200">
@@ -92,10 +169,10 @@ export default function AdminDashboardPage() {
           <p className="text-sm text-ink-500 mb-4">Recalcule as notas de todos os políticos com a versão atual.</p>
           <button 
             onClick={recalculate}
-            disabled={recalculating}
+            disabled={recalculating || autoSyncing}
             className="w-full py-2 bg-brand-600 text-white rounded-md font-medium text-sm hover:bg-brand-500 transition-colors disabled:opacity-50"
           >
-            {recalculating ? "Recalculando..." : "Recalcular Notas"}
+            {recalculating ? "Recalculando..." : "Recalcular Notas Manuais"}
           </button>
         </div>
 
@@ -112,10 +189,10 @@ export default function AdminDashboardPage() {
                     </span>
                   </div>
                   <div className="w-full bg-surface-200 rounded-full h-2">
-                    <div className="bg-brand-500 h-2 rounded-full" style={{ width: `${(status.camara.importados / status.camara.total) * 100}%` }}></div>
+                    <div className="bg-brand-500 h-2 rounded-full" style={{ width: `${(status.camara.importados / status.camara.total) * 100}%`, transition: 'width 0.5s ease-in-out' }}></div>
                   </div>
                   <p className="text-xs text-ink-400 mt-1">
-                    {status.camara.completo ? "Todos importados! Próximos syncs irão atualizar dados." : `Faltam ${status.camara.faltam} inéditos.`}
+                    {status.camara.completo ? "Todos importados!" : `Faltam ${status.camara.faltam} inéditos.`}
                   </p>
                 </div>
               </>
