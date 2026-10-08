@@ -16,7 +16,10 @@ export function VoteButtons({ factId, votesUp, votesDown, userVote }: VoteButton
   const handleVote = (value: 1 | -1) => {
     startTransition(async () => {
       try {
-        await submitVote(factId, value);
+        const res = await submitVote(factId, value);
+        if (res && !res.success) {
+          alert("Erro do Servidor: " + res.error);
+        }
       } catch (err) {
         console.error("Erro ao votar", err);
         alert("Erro ao votar. Verifique o console.");
@@ -52,3 +55,4 @@ export function VoteButtons({ factId, votesUp, votesDown, userVote }: VoteButton
     </div>
   );
 }
+

@@ -3,23 +3,20 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export async function submitVote(factId: string, value: 1 | -1) {
+export async function submitVote(factId: string, value: 1 | -1): Promise<{ success: boolean; error?: string }> {
+  try {
   // ATENÇÃO: Em produção, o userId viria do token/sessão autenticada (JWT).
   // Para demonstração desta fase, vamos pegar um usuário genérico.
-  let user = await prisma.user.findFirst({
-    where: { email: "usuario@FiscalizaI.demo" }
+  const user = await prisma.user.upsert({
+    where: { email: "usuario@FiscalizaI.demo" },
+    update: {},
+    create: {
+      name: "Usuario de Demonstracao",
+      email: "usuario@FiscalizaI.demo",
+      passwordHash: "dummy",
+      role: "USER"
+    }
   });
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        name: "Usu�rio de Demonstra��o",
-        email: "usuario@FiscalizaI.demo",
-        passwordHash: "dummy",
-        role: "USER"
-      }
-    });
-  }
 
   const userId = user.id;
 
@@ -86,5 +83,12 @@ export async function submitVote(factId: string, value: 1 | -1) {
 
   revalidatePath("/feed");
   revalidatePath("/politico/[id]", "page");
+  return { success: true };
+  } catch (error: any) {
+    console.error("Erro interno no submitVote:", error);
+    return { success: false, error: error.message };
+  }
 }
+
+
 
