@@ -46,7 +46,10 @@ export default function AdminDashboardPage() {
 
   const runRecalculate = async () => {
     const res = await fetch("/api/admin/scores/recalculate", { method: "POST" });
-    if (!res.ok) throw new Error("Erro na API");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Erro HTTP ${res.status}`);
+    }
   };
 
   const forceSync = async () => {
@@ -225,5 +228,6 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
 
 
