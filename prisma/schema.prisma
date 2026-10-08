@@ -1,0 +1,570 @@
+// AVALIADOR — schema do banco de dados.
+//
+// Compatível com SQLite (desenvolvimento) e PostgreSQL (produção).
+// Para produção: troque `provider` para "postgresql", ajuste DATABASE_URL e rode `prisma migrate`.
+// Para manter a portabilidade, NÃO usamos enums nem Json nativos: valores categóricos são
+// strings validadas por Zod (ver src/lib/constants.ts) e estruturas flexíveis são JSON em texto.
+// Valores monetários usam Float na demonstração; em produção prefira Decimal.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Usuários e autenticação ─────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  role          String    @default("USER") // USER | MODERATOR | ADMIN
+  status        String    @default("ACTIVE") // ACTIVE | SUSPENDED
+  tokenVersion  Int       @default(0) // incrementar invalida todas as sessões
+  failedLogins  Int       @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  popularVotes  PopularVote[]
+  tickets       CorrectionTicket[]
+  favorites     Favorite[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+}
+
+// ───────────────────────── Geografia e estrutura política ─────────────────────────
+
+model State {
+  uf        String         @id // sigla: MG, SP...
+  name      String
+  region    String
+  politicians Politician[]
+  municipalities Municipality[]
+  mandates  Mandate[]
+}
+
+model Municipality {
+  id        String   @id @default(cuid())
+  ibgeCode  String   @unique
+  name      String
+  stateUf   String
+  state     State    @relation(fields: [stateUf], references: [uf])
+  politicians Politician[]
+
+  @@index([stateUf])
+}
+
+model Party {
+  id        String   @id @default(cuid())
+  acronym   String   @unique
+  name      String
+  isDemo    Boolean  @default(false)
+  politicians Politician[]
+  mandates  Mandate[]
+}
+
+// Cargo genérico: nada no sistema depende de "deputado federal".
+model Office {
+  id        String   @id @default(cuid())
+  slug      String   @unique // deputado-federal | senador | presidente | governador | ...
+  name      String
+  level     String // FEDERAL | ESTADUAL | MUNICIPAL
+  active    Boolean  @default(false) // cargos habilitados na plataforma
+  politicians Politician[]
+  mandates  Mandate[]
+}
+
+model Politician {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  fullName       String
+  politicalName  String
+  searchText     String // nomes+partido+cargo+UF normalizados (sem acento/minúsculas) para busca
+  photoUrl       String?
+  officeId       String
+  partyId        String?
+  stateUf        String?
+  municipalityId String?
+  status         String   @default("EM_EXERCICIO") // EM_EXERCICIO | LICENCIADO | AFASTADO | SUPLENTE | ENCERRADO
+  bio            String?
+  externalIds    String   @default("{}") // JSON texto: { camara: "123", senado: "456", tse: "..." }
+  externalKey    String?  @unique // "colecao:id" — chave de importação idempotente (ex.: "mock:joao-exemplo")
+  isDemo         Boolean  @default(false) // DADOS DE DEMONSTRAÇÃO
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  office       Office        @relation(fields: [officeId], references: [id])
+  party        Party?        @relation(fields: [partyId], references: [id])
+  state        State?        @relation(fields: [stateUf], references: [uf])
+  municipality Municipality? @relation(fields: [municipalityId], references: [id])
+
+  mandates     Mandate[]
+  projects     Project[]
+  votes        Vote[]
+  attendances  Attendance[]
+  committees   Committee[]
+  expenses     Expense[]
+  amendments   Amendment[]
+  assets       Asset[]
+  elections    Election[]
+  donations    Donation[]
+  legalCases   LegalCase[]
+  facts        Fact[]
+  scores       Score[]
+  coverages    DataCoverage[]
+  tickets      CorrectionTicket[]
+  favorites    Favorite[]
+
+  @@index([officeId, stateUf])
+  @@index([partyId])
+  @@index([status])
+  @@index([searchText])
+}
+
+model Mandate {
+  id          String    @id @default(cuid())
+  politicianId String
+  officeId    String
+  stateUf     String?
+  partyId     String?
+  legislature String? // ex.: "57ª Legislatura"
+  startDate   DateTime
+  endDate     DateTime?
+  isCurrent   Boolean   @default(true)
+  status      String    @default("EM_EXERCICIO")
+  sourceId    String?
+
+  politician  Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  office      Office     @relation(fields: [officeId], references: [id])
+  state       State?     @relation(fields: [stateUf], references: [uf])
+  party       Party?     @relation(fields: [partyId], references: [id])
+  source      Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, isCurrent])
+}
+
+// ───────────────────────── Atuação legislativa e dados públicos ─────────────────────────
+
+model Project {
+  id          String    @id @default(cuid())
+  politicianId String
+  externalId  String?
+  title       String
+  type        String // PL | PEC | PLP | PDL | REQ | OUTRO
+  role        String    @default("AUTOR") // AUTOR | RELATOR
+  status      String // APRESENTADO | EM_TRAMITACAO | APROVADO | TRANSFORMADO_EM_NORMA | ARQUIVADO
+  relevance   Int       @default(1) // 1 baixa | 2 média | 3 alta (critério na metodologia)
+  presentedAt DateTime
+  resolvedAt  DateTime?
+  url         String?
+  sourceId    String?
+
+  politician  Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source      Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, presentedAt])
+  @@index([politicianId, status])
+}
+
+// Votação nominal individual (detalhe). Os agregados por período ficam em Attendance.
+model Vote {
+  id          String    @id @default(cuid())
+  politicianId String
+  externalId  String?
+  matter      String
+  date        DateTime
+  position    String // SIM | NAO | ABSTENCAO | OBSTRUCAO | AUSENTE
+  sourceId    String?
+
+  politician  Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source      Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, date])
+}
+
+// Agregado mensal de presença/participação.
+model Attendance {
+  id                  String   @id @default(cuid())
+  politicianId        String
+  periodStart         DateTime // primeiro dia do mês
+  sessionsTotal       Int
+  sessionsPresent     Int
+  absencesJustified   Int
+  absencesUnjustified Int
+  votesTotal          Int
+  votesParticipated   Int
+  debates             Int      @default(0)
+  sourceId            String?
+
+  politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source     Source?    @relation(fields: [sourceId], references: [id])
+
+  @@unique([politicianId, periodStart])
+}
+
+model Committee {
+  id          String    @id @default(cuid())
+  politicianId String
+  name        String
+  role        String // TITULAR | SUPLENTE | PRESIDENTE | VICE_PRESIDENTE | RELATOR
+  startDate   DateTime
+  endDate     DateTime?
+  sourceId    String?
+
+  politician  Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source      Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId])
+}
+
+model Expense {
+  id          String    @id @default(cuid())
+  politicianId String
+  category    String // COTA_PARLAMENTAR | PASSAGENS | COMBUSTIVEL | DIVULGACAO | ESCRITORIO | ...
+  description String?
+  amount      Float // BRL
+  date        DateTime
+  sourceId    String?
+
+  politician  Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source      Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, date])
+  @@index([politicianId, category])
+}
+
+model Amendment {
+  id              String   @id @default(cuid())
+  politicianId    String
+  year            Int
+  code            String
+  description     String?
+  amountCommitted Float // empenhado
+  amountPaid      Float // pago
+  status          String // PROPOSTA | EMPENHADA | PAGA | CANCELADA
+  sourceId        String?
+
+  politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source     Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, year])
+}
+
+model Asset {
+  id          String   @id @default(cuid())
+  politicianId String
+  year        Int // ano da declaração (eleição)
+  description String
+  value       Float
+  sourceId    String?
+
+  politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source     Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, year])
+}
+
+model Election {
+  id               String   @id @default(cuid())
+  politicianId     String
+  year             Int
+  officeSlug       String
+  stateUf          String?
+  result           String // ELEITO | SUPLENTE | NAO_ELEITO
+  votes            Int?
+  accountsStatus   String   @default("NAO_INFORMADO") // APROVADAS | APROVADAS_RESSALVAS | DESAPROVADAS | NAO_INFORMADO
+  sourceId         String?
+
+  politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source     Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, year])
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  politicianId String
+  year        Int
+  donorType   String // PESSOA_FISICA | PESSOA_JURIDICA | PARTIDO | FUNDO_ELEITORAL
+  amount      Float
+  sourceId    String?
+
+  politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source     Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, year])
+}
+
+// Processos e situações públicas. Cada ETAPA é tratada separadamente;
+// investigação NUNCA é tratada como condenação (ver src/lib/constants.ts → LEGAL_STAGES).
+model LegalCase {
+  id          String    @id @default(cuid())
+  politicianId String
+  caseNumber  String
+  court       String
+  stage       String // INVESTIGACAO | INQUERITO | PROCESSO | DECISAO | CONDENACAO | CONDENACAO_DEFINITIVA | ABSOLVICAO | ARQUIVAMENTO | CASSACAO | INELEGIBILIDADE
+  description String?
+  date        DateTime
+  updatedAt   DateTime  @default(now())
+  isActive    Boolean   @default(true) // situação vigente
+  sourceId    String?
+
+  politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source     Source?    @relation(fields: [sourceId], references: [id])
+
+  @@index([politicianId, stage])
+}
+
+// Cobertura de dados por domínio: alimenta "dado não disponível", transparência e confiabilidade.
+model DataCoverage {
+  id            String   @id @default(cuid())
+  politicianId  String
+  domain        String // PROJETOS | VOTACOES | PRESENCA | COMISSOES | GASTOS | EMENDAS | PATRIMONIO | ELEICAO | PROCESSOS
+  available     Boolean  @default(true)
+  completeness  Float    @default(1) // 0..1
+  lastUpdatedAt DateTime
+  sourceId      String?
+
+  politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source     Source?    @relation(fields: [sourceId], references: [id])
+
+  @@unique([politicianId, domain])
+}
+
+// ───────────────────────── Fontes, fatos e avaliação popular ─────────────────────────
+
+model Source {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  name          String
+  kind          String // CAMARA | SENADO | TSE | TRIBUNAIS | TRANSPARENCIA | OUTRO
+  description   String?
+  officialUrl   String
+  apiUrl        String?
+  reliability   Float     @default(1) // 0..1, qualidade/oficialidade da fonte
+  connection    String    @default("NAO_CONECTADA") // NAO_CONECTADA | DEMO | ATIVA
+  lastConsultedAt DateTime?
+  lastUpdatedAt DateTime?
+
+  facts       Fact[]
+  imports     DataImport[]
+  mandates    Mandate[]
+  projects    Project[]
+  votes       Vote[]
+  attendances Attendance[]
+  committees  Committee[]
+  expenses    Expense[]
+  amendments  Amendment[]
+  assets      Asset[]
+  elections   Election[]
+  donations   Donation[]
+  legalCases  LegalCase[]
+  coverages   DataCoverage[]
+}
+
+model Fact {
+  id          String    @id @default(cuid())
+  politicianId String
+  title       String
+  description String
+  category    String // VOTACAO | PROJETO | GASTO | PRESENCA | EMENDA | COMISSAO | PATRIMONIO | ELEICAO | PROCESSO | TRANSPARENCIA | OUTROS
+  date        DateTime
+  periodStart DateTime?
+  periodEnd   DateTime?
+  sourceId    String
+  sourceUrl   String
+  collectedAt DateTime
+  impact      String    @default("MEDIO") // BAIXO | MEDIO | ALTO (relevância informativa; não altera a nota)
+  status      String    @default("PUBLICADO") // RASCUNHO | PUBLICADO | OCULTO
+  votesUp     Int       @default(0)
+  votesDown   Int       @default(0)
+  isDemo      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  politician  Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  source      Source     @relation(fields: [sourceId], references: [id])
+  popularVotes PopularVote[]
+
+  @@index([politicianId, date])
+  @@index([status, date])
+  @@index([category])
+}
+
+model PopularVote {
+  id          String   @id @default(cuid())
+  factId      String
+  userId      String
+  value       Int // +1 positivo | -1 negativo
+  changes     Int      @default(0) // quantas vezes o voto foi alterado (limitado)
+  ipHash      String? // hash do IP (LGPD: sem IP em claro)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fact Fact @relation(fields: [factId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([factId, userId])
+  @@index([userId, createdAt])
+}
+
+// ───────────────────────── Algoritmo e notas ─────────────────────────
+
+// Cada versão é IMUTÁVEL (config nunca é alterada; mudanças geram nova versão).
+model AlgorithmVersion {
+  id          String   @id @default(cuid())
+  version     String   @unique // v1.0, v1.1, v2.0
+  status      String   @default("DRAFT") // DRAFT | ACTIVE | ARCHIVED
+  config      String // JSON texto: pilares + indicadores (src/modules/scoring/config.ts)
+  changeLog   String // o que mudou
+  reason      String // por que mudou
+  createdById String?
+  createdByName String?
+  createdAt   DateTime @default(now())
+  activatedAt DateTime?
+
+  scores      Score[]
+}
+
+model Score {
+  id            String   @id @default(cuid())
+  runId         String // identifica a execução de cálculo
+  politicianId  String
+  algorithmVersionId String
+  kind          String   @default("CUMULATIVE") // CUMULATIVE (mandato até hoje) | ANNUAL (histórico por ano)
+  label         String // "Mandato atual" | "2024"
+  periodStart   DateTime
+  periodEnd     DateTime
+  status        String // OK | INSUFFICIENT
+  total         Float? // 0..100 (nulo quando INSUFFICIENT)
+  technical     Float? // 0..100 sem avaliação popular
+  popularApproval Float? // 0..1 (nulo quando poucos votos)
+  popularVotes  Int      @default(0)
+  confidence    String // ALTA | MEDIA | BAIXA
+  confidenceScore Float
+  coverage      Float // 0..1 fração do peso total com dado disponível
+  rankOffice    Int?
+  rankState     Int?
+  totalOffice   Int?
+  totalState    Int?
+  percentileOffice Float? // 0..100
+  percentileState  Float?
+  isCurrent     Boolean  @default(false)
+  details       String   @default("{}") // JSON texto: médias dos pares, avisos, etc.
+  computedAt    DateTime @default(now())
+
+  politician Politician       @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  algorithm  AlgorithmVersion @relation(fields: [algorithmVersionId], references: [id])
+  components ScoreComponent[]
+
+  @@index([politicianId, kind, isCurrent])
+  @@index([isCurrent, kind, total])
+  @@index([runId])
+}
+
+model ScoreComponent {
+  id          String   @id @default(cuid())
+  scoreId     String
+  level       String // PILLAR | INDICATOR
+  code        String // LEG | PRE ... ou LEG01...
+  parentCode  String? // pilar do indicador
+  name        String
+  weight      Float
+  points      Float? // pontos obtidos (nulo se indisponível)
+  maxPoints   Float // pontos máximos possíveis (= peso)
+  normalized  Float? // 0..1
+  rawValue    Float? // valor bruto da métrica
+  peerAverage Float? // média dos pares para a métrica
+  available   Boolean  @default(true)
+  info        String? // texto explicativo do cálculo (ex.: "12,3 projetos/mês vs mediana 9,1")
+
+  score Score @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+
+  @@index([scoreId, level])
+}
+
+// ───────────────────────── Operação, auditoria e suporte ─────────────────────────
+
+model DataImport {
+  id          String    @id @default(cuid())
+  sourceId    String?
+  collector   String
+  status      String // RUNNING | SUCCESS | PARTIAL | FAILED
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  durationMs  Int?
+  recordsRead     Int   @default(0)
+  recordsImported Int   @default(0)
+  recordsUpdated  Int   @default(0)
+  recordsFailed   Int   @default(0)
+  errors      String    @default("[]") // JSON texto: [{ stage, message, record? }]
+  triggeredBy String? // userId | "system"
+
+  source Source? @relation(fields: [sourceId], references: [id])
+
+  @@index([startedAt])
+}
+
+// Trilha de auditoria append-only com encadeamento de hash (detecta adulteração).
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actorLabel String? // e-mail/nome no momento do evento
+  action    String // ex.: ALGORITHM_VERSION_CREATED, POLITICIAN_UPDATED
+  entity    String
+  entityId  String?
+  before    String? // JSON texto
+  after     String? // JSON texto
+  reason    String?
+  ipHash    String?
+  prevHash  String?
+  hash      String
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+model CorrectionTicket {
+  id           String   @id @default(cuid())
+  politicianId String?
+  factId       String?
+  information  String // qual informação está errada
+  justification String
+  sourceUrl    String?
+  description  String
+  contactEmail String? // opcional (LGPD: apenas se o usuário informar)
+  userId       String?
+  status       String   @default("ABERTO") // ABERTO | EM_ANALISE | RESOLVIDO | REJEITADO
+  resolution   String?
+  resolvedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  politician Politician? @relation(fields: [politicianId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+// Preparação para a futura área do usuário (favoritos / acompanhados).
+model Favorite {
+  id           String   @id @default(cuid())
+  userId       String
+  politicianId String
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, politicianId])
+}
