@@ -94,6 +94,7 @@ export default function AdminDashboardPage() {
           }
         }
         
+        await new Promise(resolve => setTimeout(resolve, 1500));
         currentStatus = await fetchStatus();
         if (!currentStatus) throw new Error("Falha ao obter status");
       }
@@ -224,4 +225,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
 
