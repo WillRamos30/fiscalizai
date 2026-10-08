@@ -121,6 +121,9 @@ type OrgaoItem = {
   dataFim: string | null;
 };
 
+let cachedDeputadosList: DeputadoListItem[] | null = null;
+let lastCacheTime = 0;
+
 export class CamaraCollector implements Collector {
   id = "camara";
   label = "Câmara dos Deputados (Dados Abertos)";
@@ -131,16 +134,24 @@ export class CamaraCollector implements Collector {
   async fetch(ctx: CollectorContext): Promise<RawBundle> {
     console.log("▶ [CamaraCollector] Consultando API de Dados Abertos da Câmara dos Deputados...");
 
-    // 1. Busca deputados em exercício na legislatura atual
-    const listRes = await fetchJson<{ dados: DeputadoListItem[] }>(
-      `${BASE_URL}/deputados?idLegislatura=57&ordem=ASC&ordenarPor=nome&itens=1000`
-    );
+    // 1. Busca deputados em exercício na legislatura atual (usa cache em memória se o container Vercel estiver quente)
+    let deputados: DeputadoListItem[] = [];
+    
+    if (cachedDeputadosList && Date.now() - lastCacheTime < 5 * 60 * 1000) {
+      console.log("▶ [CamaraCollector] Usando cache em memória para a lista de 513 deputados (economizando ~3s)...");
+      deputados = cachedDeputadosList;
+    } else {
+      const listRes = await fetchJson<{ dados: DeputadoListItem[] }>(
+        `${BASE_URL}/deputados?idLegislatura=57&ordem=ASC&ordenarPor=nome&itens=1000`
+      );
 
-    if (!listRes || !Array.isArray(listRes.dados) || listRes.dados.length === 0) {
-      throw new Error("Não foi possível obter a lista de deputados da Câmara dos Deputados.");
+      if (!listRes || !Array.isArray(listRes.dados) || listRes.dados.length === 0) {
+        throw new Error("Não foi possível obter a lista de deputados da Câmara dos Deputados.");
+      }
+      deputados = listRes.dados;
+      cachedDeputadosList = deputados;
+      lastCacheTime = Date.now();
     }
-
-    let deputados = listRes.dados;
 
     if (this.options.ufs && this.options.ufs.length > 0) {
       const ufs = new Set(this.options.ufs.map((u) => u.toUpperCase()));
@@ -152,7 +163,7 @@ export class CamaraCollector implements Collector {
         ? this.options.limit
         : process.env.CAMARA_LIMIT
         ? parseInt(process.env.CAMARA_LIMIT, 10)
-        : 1;
+        : 2;
 
     if (limit > 0 && limit < deputados.length) {
       // Busca no banco os políticos já existentes para não repetir e sim preencher todos aos poucos
@@ -300,6 +311,7 @@ export class CamaraCollector implements Collector {
     return { politicians };
   }
 }
+
 
 
 
