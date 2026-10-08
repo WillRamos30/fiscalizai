@@ -64,6 +64,8 @@ type PersistArgs = {
   config: AlgorithmConfig;
 };
 
+import { randomUUID } from "crypto";
+
 async function persistWindow({ db, runId, algorithmId, window, inputs, results }: PersistArgs) {
   const ranks = assignRanks(
     results.map((r) => {
@@ -74,78 +76,98 @@ async function persistWindow({ db, runId, algorithmId, window, inputs, results }
 
   await db.$transaction(
     async (tx) => {
-      // Marca como não-atuais as notas anteriores do mesmo tipo/rótulo (histórico preservado).
+      // Marca como não-atuais as notas anteriores
       await tx.score.updateMany({
         where: { kind: window.kind, label: window.label, isCurrent: true, politicianId: { in: results.map((r) => r.politicianId) } },
         data: { isCurrent: false },
       });
+
+      const scoresData: any[] = [];
+      const componentsData: any[] = [];
+
       for (const r of results) {
         const inp = inputs.find((i) => i.id === r.politicianId)!;
         const rk = ranks.get(r.politicianId)!;
-        await tx.score.create({
-          data: {
-            runId,
-            politicianId: r.politicianId,
-            algorithmVersionId: algorithmId,
-            kind: window.kind,
-            label: window.label,
-            periodStart: window.period.start,
-            periodEnd: window.period.end,
-            status: r.status,
-            total: r.total,
-            technical: r.technical,
-            popularApproval: r.popularApproval,
-            popularVotes: r.popularVotes,
-            confidence: r.confidence,
-            confidenceScore: r.confidenceScore,
-            coverage: r.coverage,
-            rankOffice: rk.rankOffice,
-            rankState: rk.rankState,
-            totalOffice: rk.totalOffice,
-            totalState: rk.totalState,
-            percentileOffice: rk.percentileOffice,
-            percentileState: rk.percentileState,
-            isCurrent: true,
-            details: JSON.stringify({
-              warnings: r.warnings,
-              months: Math.round(inp.months * 10) / 10,
-              officeAverage: rk.officeAverage,
-              stateAverage: rk.stateAverage,
-            }),
-            components: {
-              create: [
-                ...r.pillars.map((p) => ({
-                  level: "PILLAR",
-                  code: p.code,
-                  parentCode: null,
-                  name: p.name,
-                  weight: p.weight,
-                  points: p.points,
-                  maxPoints: p.weight,
-                  normalized: p.value,
-                  rawValue: null,
-                  peerAverage: null,
-                  available: p.available,
-                  info: `Cobertura de indicadores: ${Math.round(p.coverage * 100)}%`,
-                })),
-                ...r.indicators.map((i) => ({
-                  level: "INDICATOR",
-                  code: i.id,
-                  parentCode: i.pillar,
-                  name: i.name,
-                  weight: i.weight,
-                  points: i.points,
-                  maxPoints: i.weight,
-                  normalized: i.normalized,
-                  rawValue: i.rawValue,
-                  peerAverage: i.peerAverage,
-                  available: i.available,
-                  info: i.info,
-                })),
-              ],
-            },
-          },
+        const scoreId = randomUUID();
+
+        scoresData.push({
+          id: scoreId,
+          runId,
+          politicianId: r.politicianId,
+          algorithmVersionId: algorithmId,
+          kind: window.kind,
+          label: window.label,
+          periodStart: window.period.start,
+          periodEnd: window.period.end,
+          status: r.status,
+          total: r.total,
+          technical: r.technical,
+          popularApproval: r.popularApproval,
+          popularVotes: r.popularVotes,
+          confidence: r.confidence,
+          confidenceScore: r.confidenceScore,
+          coverage: r.coverage,
+          rankOffice: rk.rankOffice,
+          rankState: rk.rankState,
+          totalOffice: rk.totalOffice,
+          totalState: rk.totalState,
+          percentileOffice: rk.percentileOffice,
+          percentileState: rk.percentileState,
+          isCurrent: true,
+          details: JSON.stringify({
+            warnings: r.warnings,
+            months: Math.round(inp.months * 10) / 10,
+            officeAverage: rk.officeAverage,
+            stateAverage: rk.stateAverage,
+          }),
         });
+
+        for (const p of r.pillars) {
+          componentsData.push({
+            id: randomUUID(),
+            scoreId,
+            level: "PILLAR",
+            code: p.code,
+            parentCode: null,
+            name: p.name,
+            weight: p.weight,
+            points: p.points,
+            maxPoints: p.weight,
+            normalized: p.value,
+            rawValue: null,
+            peerAverage: null,
+            available: p.available,
+            info: `Cobertura de indicadores: ${Math.round(p.coverage * 100)}%`,
+          });
+        }
+
+        for (const i of r.indicators) {
+          componentsData.push({
+            id: randomUUID(),
+            scoreId,
+            level: "INDICATOR",
+            code: i.id,
+            parentCode: i.pillar,
+            name: i.name,
+            weight: i.weight,
+            points: i.points,
+            maxPoints: i.weight,
+            normalized: i.normalized,
+            rawValue: i.rawValue,
+            peerAverage: i.peerAverage,
+            available: i.available,
+            info: i.info,
+          });
+        }
+      }
+
+      // Prisma createMany is extremely fast
+      await tx.score.createMany({ data: scoresData });
+      
+      // Batch component inserts to avoid postgres 65535 parameter limits
+      const chunkSize = 2000;
+      for (let i = 0; i < componentsData.length; i += chunkSize) {
+        await tx.scoreComponent.createMany({ data: componentsData.slice(i, i + chunkSize) });
       }
     },
     { timeout: 120_000, maxWait: 20_000 },
