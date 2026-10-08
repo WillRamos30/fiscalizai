@@ -6,12 +6,19 @@ import { revalidatePath } from "next/cache";
 export async function submitVote(factId: string, value: 1 | -1) {
   // ATENÇÃO: Em produção, o userId viria do token/sessão autenticada (JWT).
   // Para demonstração desta fase, vamos pegar um usuário genérico.
-  const user = await prisma.user.findFirst({
+  let user = await prisma.user.findFirst({
     where: { email: "usuario@FiscalizaI.demo" }
   });
 
   if (!user) {
-    throw new Error("Usuário de demonstração não encontrado. Execute o seed.");
+    user = await prisma.user.create({
+      data: {
+        name: "Usu�rio de Demonstra��o",
+        email: "usuario@FiscalizaI.demo",
+        passwordHash: "dummy",
+        role: "USER"
+      }
+    });
   }
 
   const userId = user.id;
@@ -80,3 +87,4 @@ export async function submitVote(factId: string, value: 1 | -1) {
   revalidatePath("/feed");
   revalidatePath("/politico/[id]", "page");
 }
+
