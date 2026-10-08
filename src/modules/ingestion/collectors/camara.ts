@@ -28,7 +28,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
         Accept: "application/json",
         "User-Agent": "FiscalizaI-Plataforma/1.0 (+https://dadosabertos.camara.leg.br)",
       },
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) return null;
     return (await res.json()) as T;
@@ -300,6 +300,9 @@ export class CamaraCollector implements Collector {
     return { politicians };
   }
 }
+
+
+
 
 
 
