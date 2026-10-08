@@ -73,7 +73,22 @@ export default function AdminDashboardPage() {
 
       while (!currentStatus.camara.completo && !abortAutoSync.current) {
         setMessage(`⏳ Sincronizando lote... Faltam ${currentStatus.camara.faltam} inéditos.`);
-        await runSingleSync();
+        
+        // Retry logic for unstable API connections
+        let attempts = 0;
+        let success = false;
+        while (attempts < 3 && !success && !abortAutoSync.current) {
+          try {
+            await runSingleSync();
+            success = true;
+          } catch (err) {
+            attempts++;
+            console.error("Erro no lote, tentativa " + attempts);
+            if (attempts >= 3) throw new Error("Falha repetida na API");
+            setMessage(`⚠️ Instabilidade na rede. Tentando novamente (${attempts}/3)...`);
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Espera 3s antes de tentar de novo
+          }
+        }
         
         currentStatus = await fetchStatus();
         if (!currentStatus) throw new Error("Falha ao obter status");
@@ -89,7 +104,7 @@ export default function AdminDashboardPage() {
       }
 
     } catch (e) {
-      setMessage("❌ Erro durante o Auto-Sync. Tente novamente.");
+      setMessage("❌ Erro durante o Auto-Sync (API instável ou timeout). Tente novamente.");
     } finally {
       setAutoSyncing(false);
       setSyncing(false);

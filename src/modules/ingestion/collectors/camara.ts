@@ -152,7 +152,7 @@ export class CamaraCollector implements Collector {
         ? this.options.limit
         : process.env.CAMARA_LIMIT
         ? parseInt(process.env.CAMARA_LIMIT, 10)
-        : 50;
+        : 15;
 
     if (limit > 0 && limit < deputados.length) {
       // Busca no banco os políticos já existentes para não repetir e sim preencher todos aos poucos
@@ -300,4 +300,5 @@ export class CamaraCollector implements Collector {
     return { politicians };
   }
 }
+
 
