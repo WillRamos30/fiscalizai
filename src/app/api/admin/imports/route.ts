@@ -3,7 +3,7 @@ import { badRequest, handle, json, readJson } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/modules/auth/service";
 import { getCollector } from "@/modules/ingestion/collectors";
-import { runFullSync } from "@/modules/ingestion/sync";
+import { runImport } from "@/modules/ingestion/pipeline";
 import { NotConnectedError } from "@/modules/ingestion/types";
 
 export const maxDuration = 60;
@@ -17,10 +17,11 @@ export const POST = handle(async (req) => {
   if (!collector) throw badRequest(`Coletor desconhecido: ${id}`);
   
   try {
-    const result = await runFullSync(prisma, collector, { triggeredBy: admin.id, actorLabel: admin.email });
+    const result = await runImport(prisma, collector, { now: new Date(), triggeredBy: admin.id, actorLabel: admin.email });
     return json({ success: true, result }, { status: 200 });
   } catch (e) {
     if (e instanceof NotConnectedError) return json({ error: e.message }, { status: 500 });
     throw e;
   }
 });
+
