@@ -18,7 +18,7 @@ function formatCurrency(value: number) {
 export default async function HomePage() {
   // Busca os top 10 políticos do ranking técnico
   const topPoliticians = await prisma.score.findMany({
-    where: { isCurrent: true, status: "OK" },
+    where: { isCurrent: true, status: "OK", kind: "CUMULATIVE" },
     orderBy: { technical: "desc" },
     take: 10,
     include: {
@@ -291,3 +291,4 @@ export default async function HomePage() {
     </div>
   );
 }
+
