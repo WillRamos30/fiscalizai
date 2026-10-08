@@ -9,7 +9,12 @@ export const metadata: Metadata = {
   description: "Plataforma de avaliação de desempenho de políticos brasileiros.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+import { cookies } from "next/headers";
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const isLoggedIn = cookieStore.has("FiscalizaI_session");
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-200">
@@ -29,7 +34,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/comparar" className="hidden sm:block hover:text-brand-200 transition-colors">Comparar</Link>
                 <Link href="/feed" className="hidden sm:block hover:text-brand-200 transition-colors">Feed</Link>
                 <ThemeToggle />
-                <Link href="/login" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-md transition-colors">Entrar</Link>
+                {isLoggedIn ? (
+                  <Link href="/admin" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors text-white">Painel</Link>
+                ) : (
+                  <Link href="/login" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-md transition-colors">Entrar</Link>
+                )}
               </nav>
             </div>
           </header>
