@@ -38,7 +38,10 @@ export default function AdminDashboardPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ collector: "camara" })
     });
-    if (!res.ok) throw new Error("Erro na API");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Erro HTTP ${res.status}`);
+    }
   };
 
   const runRecalculate = async () => {
@@ -53,8 +56,8 @@ export default function AdminDashboardPage() {
       await runSingleSync();
       setMessage("✅ Sincronização da Câmara concluída!");
       await fetchStatus();
-    } catch (e) {
-      setMessage("❌ Erro ao iniciar sincronização.");
+    } catch (e: any) {
+      setMessage(`❌ Erro ao iniciar sincronização: ${e.message}`);
     } finally {
       setSyncing(false);
     }
@@ -70,23 +73,24 @@ export default function AdminDashboardPage() {
 
     try {
       let currentStatus = status;
+      let lastErrorStr = "";
 
       while (!currentStatus.camara.completo && !abortAutoSync.current) {
         setMessage(`⏳ Sincronizando lote... Faltam ${currentStatus.camara.faltam} inéditos.`);
         
-        // Retry logic for unstable API connections
         let attempts = 0;
         let success = false;
         while (attempts < 3 && !success && !abortAutoSync.current) {
           try {
             await runSingleSync();
             success = true;
-          } catch (err) {
+          } catch (err: any) {
             attempts++;
-            console.error("Erro no lote, tentativa " + attempts);
-            if (attempts >= 3) throw new Error("Falha repetida na API");
-            setMessage(`⚠️ Instabilidade na rede. Tentando novamente (${attempts}/3)...`);
-            await new Promise(resolve => setTimeout(resolve, 3000)); // Espera 3s antes de tentar de novo
+            lastErrorStr = err.message;
+            console.error("Erro no lote, tentativa " + attempts, err);
+            if (attempts >= 3) throw err; // Lança o erro real
+            setMessage(`⚠️ Falha (${err.message}). Tentando novamente (${attempts}/3)...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
           }
         }
         
@@ -220,3 +224,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
