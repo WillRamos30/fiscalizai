@@ -8,6 +8,7 @@
 //  • Comissões e órgãos de atuação
 
 import type { Collector, CollectorContext, RawBundle, RawPoliticianInput } from "../types";
+import { prisma } from "@/lib/db";
 
 export interface CamaraCollectorOptions {
   /** Limite de deputados a importar (default: 50; use 0 ou Infinity para todos os 513) */
@@ -146,7 +147,7 @@ export class CamaraCollector implements Collector {
       deputados = deputados.filter((d) => ufs.has(d.siglaUf));
     }
 
-    const limit =
+    let limit =
       this.options.limit !== undefined
         ? this.options.limit
         : process.env.CAMARA_LIMIT
@@ -154,7 +155,26 @@ export class CamaraCollector implements Collector {
         : 50;
 
     if (limit > 0 && limit < deputados.length) {
-      deputados = deputados.slice(0, limit);
+      // Busca no banco os políticos já existentes para não repetir e sim preencher todos aos poucos
+      const existing = await prisma.politician.findMany({
+        where: { externalKey: { startsWith: "camara:" } },
+        select: { externalKey: true, updatedAt: true },
+        orderBy: { updatedAt: 'asc' }
+      });
+      
+      const existingKeys = new Set(existing.map((p) => p.externalKey));
+      
+      // Filtra os que AINDA NÃO ESTÃO no banco
+      const faltantes = deputados.filter((d) => !existingKeys.has(`camara:${d.id}`));
+      
+      if (faltantes.length > 0) {
+        // Se ainda tem deputados faltando, pega o próximo lote de inéditos
+        deputados = faltantes.slice(0, limit);
+      } else {
+        // Se já puxou os 513, atualiza os 50 mais antigos (menor updatedAt)
+        const oldestKeys = new Set(existing.slice(0, limit).map(p => p.externalKey));
+        deputados = deputados.filter(d => oldestKeys.has(`camara:${d.id}`)).slice(0, limit);
+      }
     }
 
     console.log(`▶ [CamaraCollector] Processando ${deputados.length} deputados reais...`);
@@ -280,3 +300,4 @@ export class CamaraCollector implements Collector {
     return { politicians };
   }
 }
+
