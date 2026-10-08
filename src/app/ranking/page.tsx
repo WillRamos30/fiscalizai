@@ -24,6 +24,7 @@ export default async function RankingPage(props: {
     where: {
       isCurrent: true,
       status: "OK",
+      kind: "CUMULATIVE",
       politician: {
         office: office ? { slug: office } : undefined,
         stateUf: state || undefined,
