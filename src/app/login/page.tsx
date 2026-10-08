@@ -25,7 +25,8 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Erro ao fazer login");
+        const msg = data.error?.message || "Erro ao fazer login";
+        throw new Error(msg);
       }
 
       // Sucesso: Redireciona para o painel admin
