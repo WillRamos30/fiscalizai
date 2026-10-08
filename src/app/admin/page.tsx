@@ -1,11 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function AdminDashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [message, setMessage] = useState("");
+  
+  const [status, setStatus] = useState<any>(null);
+
+  const fetchStatus = async () => {
+    try {
+      const res = await fetch("/api/admin/status");
+      if (res.ok) setStatus(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
 
   const forceSync = async () => {
     setSyncing(true);
@@ -17,7 +32,8 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({ collector: "camara" }) // Importa câmara como teste base
       });
       if (res.ok) {
-        setMessage("✅ Sincronização da Câmara iniciada em segundo plano! Demora alguns minutos.");
+        setMessage("✅ Sincronização da Câmara concluída!");
+        fetchStatus();
       } else {
         setMessage("❌ Erro ao iniciar sincronização.");
       }
@@ -34,7 +50,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch("/api/admin/scores/recalculate", { method: "POST" });
       if (res.ok) {
-        setMessage("✅ Recálculo de notas iniciado em segundo plano!");
+        setMessage("✅ Recálculo de notas concluído com sucesso!");
       } else {
         setMessage("❌ Erro ao recalcular notas.");
       }
@@ -67,7 +83,7 @@ export default function AdminDashboardPage() {
             disabled={syncing}
             className="w-full py-2 bg-brand-600 text-white rounded-md font-medium text-sm hover:bg-brand-500 transition-colors disabled:opacity-50"
           >
-            {syncing ? "Iniciando..." : "Forçar Sincronização"}
+            {syncing ? "Sincronizando lote (aguarde)..." : "Sincronizar Próximo Lote"}
           </button>
         </div>
         
@@ -79,16 +95,34 @@ export default function AdminDashboardPage() {
             disabled={recalculating}
             className="w-full py-2 bg-brand-600 text-white rounded-md font-medium text-sm hover:bg-brand-500 transition-colors disabled:opacity-50"
           >
-            {recalculating ? "Iniciando..." : "Recalcular Notas"}
+            {recalculating ? "Recalculando..." : "Recalcular Notas"}
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-surface-200 opacity-50">
-          <h2 className="text-lg font-bold text-ink-900 mb-2">Auditoria</h2>
-          <p className="text-sm text-ink-500 mb-4">Visualize os logs do sistema e alterações manuais.</p>
-          <button disabled className="w-full py-2 border border-surface-200 text-ink-700 rounded-md font-medium text-sm hover:bg-surface-50 transition-colors cursor-not-allowed">
-            Em breve
-          </button>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-surface-200">
+          <h2 className="text-lg font-bold text-ink-900 mb-2">Progresso do Banco</h2>
+          <div className="text-sm text-ink-600 mb-4 space-y-3">
+            {status ? (
+              <>
+                <div>
+                  <div className="flex justify-between font-semibold text-ink-800 mb-1">
+                    <span>Câmara dos Deputados</span>
+                    <span className={status.camara.completo ? "text-good-600" : ""}>
+                      {status.camara.importados} / {status.camara.total}
+                    </span>
+                  </div>
+                  <div className="w-full bg-surface-200 rounded-full h-2">
+                    <div className="bg-brand-500 h-2 rounded-full" style={{ width: `${(status.camara.importados / status.camara.total) * 100}%` }}></div>
+                  </div>
+                  <p className="text-xs text-ink-400 mt-1">
+                    {status.camara.completo ? "Todos importados! Próximos syncs irão atualizar dados." : `Faltam ${status.camara.faltam} inéditos.`}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p>Carregando status...</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
