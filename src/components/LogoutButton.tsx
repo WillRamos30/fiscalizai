@@ -8,10 +8,17 @@ export function LogoutButton() {
   const [loading, setLoading] = useState(false);
 
   const handleLogout = async () => {
-    setLoading(true);
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.refresh();
-    router.push("/");
+    try {
+      setLoading(true);
+      const res = await fetch("/api/auth/logout", { method: "POST" });
+      if (!res.ok) throw new Error("Erro no servidor");
+      // Atualizar o estado global
+      window.location.href = "/";
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -25,3 +32,5 @@ export function LogoutButton() {
     </button>
   );
 }
+
+
