@@ -34,6 +34,13 @@ export default async function FeedPage() {
               </div>
               <h2 className="text-lg font-bold text-ink-900 leading-snug">{fact.title}</h2>
               <p className="text-ink-700 text-sm">{fact.description}</p>
+              {fact.sourceUrl && (
+                <div className="pt-1 pb-1">
+                  <a href={fact.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-brand-600 hover:underline border border-brand-200 bg-brand-50 px-2 py-1 rounded inline-flex items-center gap-1">
+                    <span>??</span> Fonte Oficial
+                  </a>
+                </div>
+              )}
               
               <div className="flex items-center gap-2 pt-2">
                 <span className="text-xs text-ink-500">Político:</span>
@@ -60,3 +67,4 @@ export default async function FeedPage() {
     </div>
   );
 }
+

@@ -24,7 +24,7 @@ export default async function PoliticianPage(props: { params: Promise<{ id: stri
       facts: {
         where: { status: "PUBLICADO" },
         orderBy: { date: "desc" },
-        take: 5,
+        take: 15,
       },
       scores: {
         where: { isCurrent: true },
@@ -156,6 +156,13 @@ export default async function PoliticianPage(props: { params: Promise<{ id: stri
                 </div>
                 <h3 className="text-base font-bold text-ink-900 leading-snug">{fact.title}</h3>
                 <p className="text-ink-700 text-sm">{fact.description}</p>
+                {fact.sourceUrl && (
+                  <div className="pt-2">
+                    <a href={fact.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-brand-600 hover:underline border border-brand-200 bg-brand-50 px-2 py-1 rounded inline-flex items-center gap-1">
+                      <span>??</span> Fonte Oficial
+                    </a>
+                  </div>
+                )}
               </div>
               
               <VoteButtons
@@ -175,3 +182,5 @@ export default async function PoliticianPage(props: { params: Promise<{ id: stri
     </div>
   );
 }
+
+
