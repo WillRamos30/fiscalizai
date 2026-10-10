@@ -1,10 +1,10 @@
-// AVALIADOR — schema do banco de dados.
+// AVALIADOR â€” schema do banco de dados.
 //
-// Compatível com SQLite (desenvolvimento) e PostgreSQL (produção).
-// Para produção: troque `provider` para "postgresql", ajuste DATABASE_URL e rode `prisma migrate`.
-// Para manter a portabilidade, NÃO usamos enums nem Json nativos: valores categóricos são
-// strings validadas por Zod (ver src/lib/constants.ts) e estruturas flexíveis são JSON em texto.
-// Valores monetários usam Float na demonstração; em produção prefira Decimal.
+// CompatÃ­vel com SQLite (desenvolvimento) e PostgreSQL (produÃ§Ã£o).
+// Para produÃ§Ã£o: troque `provider` para "postgresql", ajuste DATABASE_URL e rode `prisma migrate`.
+// Para manter a portabilidade, NÃƒO usamos enums nem Json nativos: valores categÃ³ricos sÃ£o
+// strings validadas por Zod (ver src/lib/constants.ts) e estruturas flexÃ­veis sÃ£o JSON em texto.
+// Valores monetÃ¡rios usam Float na demonstraÃ§Ã£o; em produÃ§Ã£o prefira Decimal.
 
 generator client {
   provider = "prisma-client-js"
@@ -15,16 +15,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ───────────────────────── Usuários e autenticação ─────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ UsuÃ¡rios e autenticaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
+  cpf           String?   @unique
   name          String
   passwordHash  String
   role          String    @default("USER") // USER | MODERATOR | ADMIN
   status        String    @default("ACTIVE") // ACTIVE | SUSPENDED
-  tokenVersion  Int       @default(0) // incrementar invalida todas as sessões
+  tokenVersion  Int       @default(0) // incrementar invalida todas as sessÃµes
   failedLogins  Int       @default(0)
   lockedUntil   DateTime?
   lastLoginAt   DateTime?
@@ -39,7 +40,7 @@ model User {
   @@index([role])
 }
 
-// ───────────────────────── Geografia e estrutura política ─────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Geografia e estrutura polÃ­tica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model State {
   uf        String         @id // sigla: MG, SP...
@@ -70,7 +71,7 @@ model Party {
   mandates  Mandate[]
 }
 
-// Cargo genérico: nada no sistema depende de "deputado federal".
+// Cargo genÃ©rico: nada no sistema depende de "deputado federal".
 model Office {
   id        String   @id @default(cuid())
   slug      String   @unique // deputado-federal | senador | presidente | governador | ...
@@ -86,7 +87,7 @@ model Politician {
   slug           String   @unique
   fullName       String
   politicalName  String
-  searchText     String // nomes+partido+cargo+UF normalizados (sem acento/minúsculas) para busca
+  searchText     String // nomes+partido+cargo+UF normalizados (sem acento/minÃºsculas) para busca
   photoUrl       String?
   officeId       String
   partyId        String?
@@ -95,8 +96,8 @@ model Politician {
   status         String   @default("EM_EXERCICIO") // EM_EXERCICIO | LICENCIADO | AFASTADO | SUPLENTE | ENCERRADO
   bio            String?
   externalIds    String   @default("{}") // JSON texto: { camara: "123", senado: "456", tse: "..." }
-  externalKey    String?  @unique // "colecao:id" — chave de importação idempotente (ex.: "mock:joao-exemplo")
-  isDemo         Boolean  @default(false) // DADOS DE DEMONSTRAÇÃO
+  externalKey    String?  @unique // "colecao:id" â€” chave de importaÃ§Ã£o idempotente (ex.: "mock:joao-exemplo")
+  isDemo         Boolean  @default(false) // DADOS DE DEMONSTRAÃ‡ÃƒO
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -134,7 +135,7 @@ model Mandate {
   officeId    String
   stateUf     String?
   partyId     String?
-  legislature String? // ex.: "57ª Legislatura"
+  legislature String? // ex.: "57Âª Legislatura"
   startDate   DateTime
   endDate     DateTime?
   isCurrent   Boolean   @default(true)
@@ -150,7 +151,7 @@ model Mandate {
   @@index([politicianId, isCurrent])
 }
 
-// ───────────────────────── Atuação legislativa e dados públicos ─────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ AtuaÃ§Ã£o legislativa e dados pÃºblicos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model Project {
   id          String    @id @default(cuid())
@@ -160,7 +161,7 @@ model Project {
   type        String // PL | PEC | PLP | PDL | REQ | OUTRO
   role        String    @default("AUTOR") // AUTOR | RELATOR
   status      String // APRESENTADO | EM_TRAMITACAO | APROVADO | TRANSFORMADO_EM_NORMA | ARQUIVADO
-  relevance   Int       @default(1) // 1 baixa | 2 média | 3 alta (critério na metodologia)
+  relevance   Int       @default(1) // 1 baixa | 2 mÃ©dia | 3 alta (critÃ©rio na metodologia)
   presentedAt DateTime
   resolvedAt  DateTime?
   url         String?
@@ -173,7 +174,7 @@ model Project {
   @@index([politicianId, status])
 }
 
-// Votação nominal individual (detalhe). Os agregados por período ficam em Attendance.
+// VotaÃ§Ã£o nominal individual (detalhe). Os agregados por perÃ­odo ficam em Attendance.
 model Vote {
   id          String    @id @default(cuid())
   politicianId String
@@ -189,11 +190,11 @@ model Vote {
   @@index([politicianId, date])
 }
 
-// Agregado mensal de presença/participação.
+// Agregado mensal de presenÃ§a/participaÃ§Ã£o.
 model Attendance {
   id                  String   @id @default(cuid())
   politicianId        String
-  periodStart         DateTime // primeiro dia do mês
+  periodStart         DateTime // primeiro dia do mÃªs
   sessionsTotal       Int
   sessionsPresent     Int
   absencesJustified   Int
@@ -260,7 +261,7 @@ model Amendment {
 model Asset {
   id          String   @id @default(cuid())
   politicianId String
-  year        Int // ano da declaração (eleição)
+  year        Int // ano da declaraÃ§Ã£o (eleiÃ§Ã£o)
   description String
   value       Float
   sourceId    String?
@@ -302,8 +303,8 @@ model Donation {
   @@index([politicianId, year])
 }
 
-// Processos e situações públicas. Cada ETAPA é tratada separadamente;
-// investigação NUNCA é tratada como condenação (ver src/lib/constants.ts → LEGAL_STAGES).
+// Processos e situaÃ§Ãµes pÃºblicas. Cada ETAPA Ã© tratada separadamente;
+// investigaÃ§Ã£o NUNCA Ã© tratada como condenaÃ§Ã£o (ver src/lib/constants.ts â†’ LEGAL_STAGES).
 model LegalCase {
   id          String    @id @default(cuid())
   politicianId String
@@ -313,7 +314,7 @@ model LegalCase {
   description String?
   date        DateTime
   updatedAt   DateTime  @default(now())
-  isActive    Boolean   @default(true) // situação vigente
+  isActive    Boolean   @default(true) // situaÃ§Ã£o vigente
   sourceId    String?
 
   politician Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
@@ -322,7 +323,7 @@ model LegalCase {
   @@index([politicianId, stage])
 }
 
-// Cobertura de dados por domínio: alimenta "dado não disponível", transparência e confiabilidade.
+// Cobertura de dados por domÃ­nio: alimenta "dado nÃ£o disponÃ­vel", transparÃªncia e confiabilidade.
 model DataCoverage {
   id            String   @id @default(cuid())
   politicianId  String
@@ -338,7 +339,7 @@ model DataCoverage {
   @@unique([politicianId, domain])
 }
 
-// ───────────────────────── Fontes, fatos e avaliação popular ─────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Fontes, fatos e avaliaÃ§Ã£o popular â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model Source {
   id            String    @id @default(cuid())
@@ -381,7 +382,7 @@ model Fact {
   sourceId    String
   sourceUrl   String
   collectedAt DateTime
-  impact      String    @default("MEDIO") // BAIXO | MEDIO | ALTO (relevância informativa; não altera a nota)
+  impact      String    @default("MEDIO") // BAIXO | MEDIO | ALTO (relevÃ¢ncia informativa; nÃ£o altera a nota)
   status      String    @default("PUBLICADO") // RASCUNHO | PUBLICADO | OCULTO
   votesUp     Int       @default(0)
   votesDown   Int       @default(0)
@@ -414,9 +415,9 @@ model PopularVote {
   @@index([userId, createdAt])
 }
 
-// ───────────────────────── Algoritmo e notas ─────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Algoritmo e notas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Cada versão é IMUTÁVEL (config nunca é alterada; mudanças geram nova versão).
+// Cada versÃ£o Ã© IMUTÃVEL (config nunca Ã© alterada; mudanÃ§as geram nova versÃ£o).
 model AlgorithmVersion {
   id          String   @id @default(cuid())
   version     String   @unique // v1.0, v1.1, v2.0
@@ -434,21 +435,21 @@ model AlgorithmVersion {
 
 model Score {
   id            String   @id @default(cuid())
-  runId         String // identifica a execução de cálculo
+  runId         String // identifica a execuÃ§Ã£o de cÃ¡lculo
   politicianId  String
   algorithmVersionId String
-  kind          String   @default("CUMULATIVE") // CUMULATIVE (mandato até hoje) | ANNUAL (histórico por ano)
+  kind          String   @default("CUMULATIVE") // CUMULATIVE (mandato atÃ© hoje) | ANNUAL (histÃ³rico por ano)
   label         String // "Mandato atual" | "2024"
   periodStart   DateTime
   periodEnd     DateTime
   status        String // OK | INSUFFICIENT
   total         Float? // 0..100 (nulo quando INSUFFICIENT)
-  technical     Float? // 0..100 sem avaliação popular
+  technical     Float? // 0..100 sem avaliaÃ§Ã£o popular
   popularApproval Float? // 0..1 (nulo quando poucos votos)
   popularVotes  Int      @default(0)
   confidence    String // ALTA | MEDIA | BAIXA
   confidenceScore Float
-  coverage      Float // 0..1 fração do peso total com dado disponível
+  coverage      Float // 0..1 fraÃ§Ã£o do peso total com dado disponÃ­vel
   rankOffice    Int?
   rankState     Int?
   totalOffice   Int?
@@ -456,7 +457,7 @@ model Score {
   percentileOffice Float? // 0..100
   percentileState  Float?
   isCurrent     Boolean  @default(false)
-  details       String   @default("{}") // JSON texto: médias dos pares, avisos, etc.
+  details       String   @default("{}") // JSON texto: mÃ©dias dos pares, avisos, etc.
   computedAt    DateTime @default(now())
 
   politician Politician       @relation(fields: [politicianId], references: [id], onDelete: Cascade)
@@ -476,20 +477,20 @@ model ScoreComponent {
   parentCode  String? // pilar do indicador
   name        String
   weight      Float
-  points      Float? // pontos obtidos (nulo se indisponível)
-  maxPoints   Float // pontos máximos possíveis (= peso)
+  points      Float? // pontos obtidos (nulo se indisponÃ­vel)
+  maxPoints   Float // pontos mÃ¡ximos possÃ­veis (= peso)
   normalized  Float? // 0..1
-  rawValue    Float? // valor bruto da métrica
-  peerAverage Float? // média dos pares para a métrica
+  rawValue    Float? // valor bruto da mÃ©trica
+  peerAverage Float? // mÃ©dia dos pares para a mÃ©trica
   available   Boolean  @default(true)
-  info        String? // texto explicativo do cálculo (ex.: "12,3 projetos/mês vs mediana 9,1")
+  info        String? // texto explicativo do cÃ¡lculo (ex.: "12,3 projetos/mÃªs vs mediana 9,1")
 
   score Score @relation(fields: [scoreId], references: [id], onDelete: Cascade)
 
   @@index([scoreId, level])
 }
 
-// ───────────────────────── Operação, auditoria e suporte ─────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ OperaÃ§Ã£o, auditoria e suporte â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model DataImport {
   id          String    @id @default(cuid())
@@ -511,7 +512,7 @@ model DataImport {
   @@index([startedAt])
 }
 
-// Trilha de auditoria append-only com encadeamento de hash (detecta adulteração).
+// Trilha de auditoria append-only com encadeamento de hash (detecta adulteraÃ§Ã£o).
 model AuditLog {
   id        String   @id @default(cuid())
   actorId   String?
@@ -538,11 +539,11 @@ model CorrectionTicket {
   id           String   @id @default(cuid())
   politicianId String?
   factId       String?
-  information  String // qual informação está errada
+  information  String // qual informaÃ§Ã£o estÃ¡ errada
   justification String
   sourceUrl    String?
   description  String
-  contactEmail String? // opcional (LGPD: apenas se o usuário informar)
+  contactEmail String? // opcional (LGPD: apenas se o usuÃ¡rio informar)
   userId       String?
   status       String   @default("ABERTO") // ABERTO | EM_ANALISE | RESOLVIDO | REJEITADO
   resolution   String?
@@ -556,7 +557,7 @@ model CorrectionTicket {
   @@index([status, createdAt])
 }
 
-// Preparação para a futura área do usuário (favoritos / acompanhados).
+// PreparaÃ§Ã£o para a futura Ã¡rea do usuÃ¡rio (favoritos / acompanhados).
 model Favorite {
   id           String   @id @default(cuid())
   userId       String
@@ -568,3 +569,4 @@ model Favorite {
 
   @@unique([userId, politicianId])
 }
+
