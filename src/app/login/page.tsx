@@ -24,14 +24,19 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        const msg = data.error?.message || "Erro ao fazer login";
+        const errorData = await res.json();
+        const msg = errorData.error?.message || "Erro ao fazer login";
         throw new Error(msg);
       }
 
-      // Sucesso: Atualiza o layout e redireciona para o painel admin
+      // Sucesso: Atualiza o layout e redireciona
+      const data = await res.json();
       router.refresh();
-      router.push("/admin");
+      if (data.user?.role === "ADMIN") {
+        window.location.href = "/admin";
+      } else {
+        window.location.href = "/perfil";
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -72,7 +77,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-3 rounded-lg border border-surface-200 bg-surface-50 dark:bg-surface-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-ink-900"
-            placeholder="••••••••"
+            placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
             required
           />
         </div>
@@ -88,10 +93,11 @@ export default function LoginPage() {
 
       <div className="mt-6 text-center">
         <Link href="/" className="text-sm text-brand-600 font-medium hover:underline">
-          ← Voltar para o site
+          â† Voltar para o site
         </Link>
       </div>
     </div>
   );
 }
+
 

@@ -27,14 +27,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <header className="bg-brand-900 text-white shadow-sm sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-3">
-                <span className="text-2xl">🏛️</span>
+                <span className="text-2xl">Ã°Å¸Ââ€ºÃ¯Â¸Â</span>
                 <div>
                   <h1 className="font-bold text-xl tracking-tight leading-none">FiscalizaI</h1>
                   <span className="text-[10px] uppercase tracking-wider text-brand-200 font-medium">Dados Públicos</span>
                 </div>
               </Link>
               <nav className="flex items-center gap-4 text-sm font-medium">
-                <Link href="/" className="hidden sm:block hover:text-brand-200 transition-colors">Início</Link>
+                <LInício</Link>
                 <Link href="/ranking" className="hidden sm:block hover:text-brand-200 transition-colors">Ranking</Link>
                 <Link href="/comparar" className="hidden sm:block hover:text-brand-200 transition-colors">Comparar</Link>
                 <Link href="/feed" className="hidden sm:block hover:text-brand-200 transition-colors">Feed</Link>
@@ -48,7 +48,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <LogoutButton />
                   </div>
                 ) : (
-                  <Link href="/login" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-md transition-colors text-white text-sm font-medium">Entrar</Link>
+                  <div className="flex items-center gap-2">
+                    <Link href="/login" className="px-4 py-2 text-brand-100 hover:text-white transition-colors text-sm font-medium">Entrar</Link>
+                    <Link href="/cadastro" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-md transition-colors text-white text-sm font-medium border border-brand-500 shadow-sm">Criar Conta</Link>
+                  </div>
                 )}
               </nav>
             </div>
@@ -63,8 +66,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="text-center md:text-left">
                 <h2 className="font-bold text-white text-lg mb-2">FiscalizaI</h2>
                 <p className="text-sm max-w-md">
-                  Plataforma independente de avaliação de desempenho legislativo. 
-                  Utiliza exclusivamente dados públicos oficiais. Sem viés ideológico.
+                  Plataforma independente de avaliaÃƒÂ§ÃƒÂ£o de desempenho legislativo. 
+                  Utiliza exclusivamente dados pÃƒÂºblicos oficiais. Sem viÃƒÂ©s ideolÃƒÂ³gico.
                 </p>
               </div>
               <div className="flex flex-col md:flex-row gap-8 items-center text-sm">
@@ -73,7 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <Link href="/sobre" className="hover:text-white transition-colors">Sobre / Fontes</Link>
                 </nav>
                 <div className="text-ink-500 md:border-l border-ink-700 md:pl-8">
-                  <p>© {new Date().getFullYear()} FiscalizaI. Dados públicos.</p>
+                  <p>Ã‚Â© {new Date().getFullYear()} FiscalizaI. Dados pÃƒÂºblicos.</p>
                 </div>
               </div>
             </div>
@@ -83,5 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
+
 
 
