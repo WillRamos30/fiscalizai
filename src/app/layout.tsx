@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import Link from "next/link";
+import { LogoutButton } from "@/components/LogoutButton";
 
 export const metadata: Metadata = {
   title: "FiscalizaI - Fiscalize quem você elegeu",
@@ -35,9 +36,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/feed" className="hidden sm:block hover:text-brand-200 transition-colors">Feed</Link>
                 <ThemeToggle />
                 {isLoggedIn ? (
-                  <Link href="/admin" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors text-white">Painel</Link>
+                  <div className="flex items-center gap-3">
+                    <Link href="/admin" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors text-white text-sm font-medium">Painel</Link>
+                    <LogoutButton />
+                  </div>
                 ) : (
-                  <Link href="/login" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-md transition-colors">Entrar</Link>
+                  <Link href="/login" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-md transition-colors text-white text-sm font-medium">Entrar</Link>
                 )}
               </nav>
             </div>
@@ -72,3 +76,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+

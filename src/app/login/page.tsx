@@ -29,7 +29,8 @@ export default function LoginPage() {
         throw new Error(msg);
       }
 
-      // Sucesso: Redireciona para o painel admin
+      // Sucesso: Atualiza o layout e redireciona para o painel admin
+      router.refresh();
       router.push("/admin");
     } catch (err: any) {
       setError(err.message);

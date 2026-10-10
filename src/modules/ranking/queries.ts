@@ -152,6 +152,7 @@ async function computeRanking(db: Db, f: RankingFilters): Promise<RankingResult>
     db.score.findMany({
       where,
       orderBy,
+      distinct: ["politicianId"],
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: { politician: { include: polSummaryInclude } },
@@ -186,3 +187,4 @@ export async function getFilterOptions(db: Db) {
     return { offices, states: states.map((s) => s.stateUf as string), parties };
   });
 }
+
