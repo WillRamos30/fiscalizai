@@ -280,7 +280,7 @@ export default async function RankingPage(props: {
         </div>
       </div>
 
-      {/* Paginação */}
+      {/* Paginaï¿½ï¿½o */}
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-4 py-4">
           <Link
@@ -290,13 +290,13 @@ export default async function RankingPage(props: {
             Anterior
           </Link>
           <span className="text-sm font-medium text-ink-500">
-            Página {page} de {totalPages}
+            Pï¿½gina {page} de {totalPages}
           </span>
           <Link
             href={`/ranking?q=${q}&office=${office}&state=${state}&page=${Math.min(totalPages, page + 1)}`}
             className={`px-4 py-2 border rounded-md font-medium text-sm transition-colors ${page === totalPages ? "bg-surface-100 text-ink-300 pointer-events-none border-surface-200" : "bg-white text-ink-700 hover:bg-surface-50 border-surface-300"}`}
           >
-            Próxima
+            Prï¿½xima
           </Link>
         </div>
       )}

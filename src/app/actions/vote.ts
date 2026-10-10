@@ -11,12 +11,12 @@ export async function submitVote(factId: string, value: 1 | -1): Promise<{ succe
     const session = await verifySession(token);
 
     if (!session) {
-      return { success: false, error: "Você precisa estar logado para votar." };
+      return { success: false, error: "Vocï¿½ precisa estar logado para votar." };
     }
 
     const userId = session.sub;
 
-    // Busca se o usuário já votou neste fato
+    // Busca se o usuï¿½rio jï¿½ votou neste fato
     const existingVote = await prisma.popularVote.findUnique({
       where: {
         factId_userId: { factId, userId }
