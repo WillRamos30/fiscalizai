@@ -1,4 +1,4 @@
-import "server-only";
+﻿"use server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -11,12 +11,12 @@ export async function submitVote(factId: string, value: 1 | -1): Promise<{ succe
     const session = await verifySession(token);
 
     if (!session) {
-      return { success: false, error: "Voc� precisa estar logado para votar." };
+      return { success: false, error: "Vocï¿½ precisa estar logado para votar." };
     }
 
     const userId = session.sub;
 
-    // Busca se o usu�rio j� votou neste fato
+    // Busca se o usuï¿½rio jï¿½ votou neste fato
     const existingVote = await prisma.popularVote.findUnique({
       where: {
         factId_userId: { factId, userId }
@@ -85,3 +85,4 @@ export async function submitVote(factId: string, value: 1 | -1): Promise<{ succe
     return { success: false, error: error.message };
   }
 }
+
