@@ -11,7 +11,7 @@ function getScoreBadgeClass(score: number | null) {
 }
 
 export default async function RankingPage(props: {
-  searchParams?: Promise<{ q?: string; office?: string; state?: string }>;
+  searchParams?: Promise<{ q?: string; office?: string; state?: string; page?: string }>;
 }) {
   const params = await props.searchParams;
   const q = params?.q?.trim() || "";
@@ -303,6 +303,7 @@ export default async function RankingPage(props: {
     </div>
   );
 }
+
 
 
 

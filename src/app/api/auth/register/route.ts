@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { signSession, sessionCookie } from "@/modules/auth/session";
+import type { Role } from "@/lib/constants";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -23,7 +24,8 @@ export const POST = handle(async (req) => {
     data: { name, email, passwordHash, role: "USER" },
   });
 
-  const token = await signSession({ sub: user.id, role: user.role, tv: user.tokenVersion });
+  const token = await signSession({ sub: user.id, role: user.role as Role, tv: user.tokenVersion });
   
-  return json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } }, { cookies: [sessionCookie(token)] });
+  return json({ user: { id: user.id, name: user.name, email: user.email, role: user.role as Role } }, { cookies: [sessionCookie(token)] });
 });
+
