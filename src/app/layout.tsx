@@ -11,10 +11,14 @@ export const metadata: Metadata = {
 };
 
 import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySession } from "@/modules/auth/session";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
-  const isLoggedIn = cookieStore.has("FiscalizaI_session");
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const session = await verifySession(token);
+  const isLoggedIn = !!session;
+  const isAdmin = session?.role === "ADMIN";
 
   return (
     <html lang="pt-BR" suppressHydrationWarning>
@@ -37,7 +41,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <ThemeToggle />
                 {isLoggedIn ? (
                   <div className="flex items-center gap-3">
-                    <Link href="/admin" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors text-white text-sm font-medium">Painel</Link>
+                    {isAdmin && (
+                      <Link href="/admin" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors text-white text-sm font-medium">Painel</Link>
+                    )}
+                    <Link href="/perfil" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-md transition-colors text-white text-sm font-medium">Meu Perfil</Link>
                     <LogoutButton />
                   </div>
                 ) : (
@@ -76,4 +83,5 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
 

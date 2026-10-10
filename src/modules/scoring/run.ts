@@ -29,7 +29,7 @@ export function buildWindows(now: Date, termStart = CURRENT_TERM_START, minMonth
   const windows: WindowSpec[] = [
     { kind: "CUMULATIVE", label: "Mandato atual", period: { start: termStart, end: now }, isCurrentMain: true },
   ];
-  for (let k = 0; k < 8; k++) {
+  for (let k = 0; k < 0; k++) {
     const end = addMonthsUTC(now, -12 * k);
     const monthsAvailable = (end.getTime() - termStart.getTime()) / (30.4375 * 86_400_000);
     if (monthsAvailable < minMonths) break;
@@ -215,3 +215,4 @@ export async function recalculateAll(
 
   return { runId, algorithmVersion: algorithm.version, politicians: polCount, scored, insufficient, windows: windows.length, durationMs };
 }
+

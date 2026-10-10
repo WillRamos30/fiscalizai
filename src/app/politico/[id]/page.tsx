@@ -4,6 +4,9 @@ import { formatScore } from "@/lib/utils";
 import Link from "next/link";
 import type { PillarResult, IndicatorResult } from "@/modules/scoring/types";
 import { VoteButtons } from "@/components/VoteButtons";
+import { FollowButton } from "@/components/FollowButton";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySession } from "@/modules/auth/session";
 
 // Exemplo de uma cor baseada na nota (0-1 ou 0-100)
 function getScoreColor(val: number | null, isPercent = false) {
@@ -16,11 +19,16 @@ function getScoreColor(val: number | null, isPercent = false) {
 
 export default async function PoliticianPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const session = await verifySession(token);
+  const userId = session?.sub;
   const politician = await prisma.politician.findUnique({
     where: { id: params.id },
     include: {
       party: true,
       office: true,
+      favorites: userId ? { where: { userId } } : false,
       facts: {
         where: { status: "PUBLICADO" },
         orderBy: { date: "desc" },
@@ -182,5 +190,6 @@ export default async function PoliticianPage(props: { params: Promise<{ id: stri
     </div>
   );
 }
+
 
 

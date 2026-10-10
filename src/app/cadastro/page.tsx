@@ -4,34 +4,35 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        const msg = data.error?.message || "Erro ao fazer login";
+        const msg = data.error?.message || "Erro ao criar conta";
         throw new Error(msg);
       }
 
-      // Sucesso: Atualiza o layout e redireciona para o painel admin
+      // Sucesso: Atualiza o layout e redireciona para o feed
       router.refresh();
-      router.push("/admin");
+      window.location.href = "/feed"; // hard redirect to ensure session updates
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -42,8 +43,8 @@ export default function LoginPage() {
   return (
     <div className="max-w-md mx-auto mt-16 bg-white dark:bg-surface-100 p-8 rounded-2xl shadow-sm border border-surface-200">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-extrabold text-ink-900 mb-2">Entrar</h1>
-        <p className="text-ink-500 text-sm">Acesse o painel do FiscalizaI</p>
+        <h1 className="text-3xl font-extrabold text-ink-900 mb-2">Criar Conta</h1>
+        <p className="text-ink-500 text-sm">Junte-se ao FiscalizaI e acompanhe políticos.</p>
       </div>
 
       {error && (
@@ -52,7 +53,20 @@ export default function LoginPage() {
         </div>
       )}
 
-      <form onSubmit={handleLogin} className="space-y-6">
+      <form onSubmit={handleRegister} className="space-y-6">
+        <div>
+          <label className="block text-sm font-bold text-ink-900 mb-2">Nome Completo</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-4 py-3 rounded-lg border border-surface-200 bg-surface-50 dark:bg-surface-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-ink-900"
+            placeholder="João Silva"
+            required
+            minLength={2}
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-bold text-ink-900 mb-2">E-mail</label>
           <input
@@ -60,7 +74,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-3 rounded-lg border border-surface-200 bg-surface-50 dark:bg-surface-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-ink-900"
-            placeholder="admin@fiscalizai.com.br"
+            placeholder="joao@exemplo.com"
             required
           />
         </div>
@@ -74,6 +88,7 @@ export default function LoginPage() {
             className="w-full px-4 py-3 rounded-lg border border-surface-200 bg-surface-50 dark:bg-surface-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-ink-900"
             placeholder="••••••••"
             required
+            minLength={6}
           />
         </div>
 
@@ -82,16 +97,16 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-500 transition-colors disabled:opacity-50"
         >
-          {loading ? "Entrando..." : "Acessar Painel"}
+          {loading ? "Criando conta..." : "Criar Conta"}
         </button>
       </form>
 
-      <div className="mt-6 text-center">
-        <Link href="/" className="text-sm text-brand-600 font-medium hover:underline">
-          ← Voltar para o site
+      <div className="mt-6 text-center text-sm font-medium text-ink-500">
+        Já tem uma conta?{" "}
+        <Link href="/login" className="text-brand-600 hover:underline">
+          Entrar
         </Link>
       </div>
     </div>
   );
 }
-

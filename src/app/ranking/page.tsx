@@ -19,8 +19,11 @@ export default async function RankingPage(props: {
   const office = params?.office?.trim() || "";
   const state = params?.state?.trim() || "";
 
+  const page = parseInt((await props.searchParams)?.page || "1", 10);
+  const pageSize = 50;
+
   // Busca do ranking real no banco de dados
-  const scores = await prisma.score.findMany({
+  const allScores = await prisma.score.findMany({
     where: {
       isCurrent: true,
       status: "OK",
@@ -28,7 +31,7 @@ export default async function RankingPage(props: {
       politician: {
         office: office ? { slug: office } : undefined,
         stateUf: state || undefined,
-        searchText: q ? { contains: q } : undefined,
+        searchText: q ? { contains: q, mode: "insensitive" } : undefined,
       },
     },
     orderBy: { technical: "desc" },
@@ -37,8 +40,21 @@ export default async function RankingPage(props: {
         include: { party: true, office: true },
       },
     },
-    take: 200,
   });
+
+  // Remove duplicatas causadas por race conditions no banco (mantendo a mais recente/maior nota)
+  const seen = new Set();
+  const uniqueScores = [];
+  for (const score of allScores) {
+    if (!seen.has(score.politicianId)) {
+      seen.add(score.politicianId);
+      uniqueScores.push(score);
+    }
+  }
+
+  const totalCount = uniqueScores.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const scores = uniqueScores.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="space-y-8">
@@ -150,7 +166,7 @@ export default async function RankingPage(props: {
                   <tr key={score.id} className="hover:bg-surface-50 transition-colors">
                     {/* PosiÃ§Ã£o no Filtro */}
                     <td className="px-6 py-4 text-center">
-                      <span className="font-extrabold text-ink-400 text-base">#{idx + 1}</span>
+                      <span className="font-extrabold text-ink-400 text-base">#{(page - 1) * pageSize + idx + 1}</span>
                     </td>
 
                     {/* Parlamentar com Foto Oficial */}
@@ -263,7 +279,31 @@ export default async function RankingPage(props: {
           </table>
         </div>
       </div>
+
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 py-4">
+          <Link
+            href={`/ranking?q=${q}&office=${office}&state=${state}&page=${Math.max(1, page - 1)}`}
+            className={`px-4 py-2 border rounded-md font-medium text-sm transition-colors ${page === 1 ? "bg-surface-100 text-ink-300 pointer-events-none border-surface-200" : "bg-white text-ink-700 hover:bg-surface-50 border-surface-300"}`}
+          >
+            Anterior
+          </Link>
+          <span className="text-sm font-medium text-ink-500">
+            Página {page} de {totalPages}
+          </span>
+          <Link
+            href={`/ranking?q=${q}&office=${office}&state=${state}&page=${Math.min(totalPages, page + 1)}`}
+            className={`px-4 py-2 border rounded-md font-medium text-sm transition-colors ${page === totalPages ? "bg-surface-100 text-ink-300 pointer-events-none border-surface-200" : "bg-white text-ink-700 hover:bg-surface-50 border-surface-300"}`}
+          >
+            Próxima
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
+
+
+
 

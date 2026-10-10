@@ -249,3 +249,4 @@ export async function loadInputs(db: Db, period: Period, opts: LoadOptions = {})
   }
   return inputs;
 }
+
